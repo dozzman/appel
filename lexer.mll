@@ -6,9 +6,10 @@
 
 let ch = [ 'a' - 'z' 'A' - 'Z' ]
 let digit = [ '0' - '9' ]
-let id = ch ( ch | digit )+ 
+let id = ch ( ch | digit )* 
 rule token = parse
 | [ ' ' '\t' '\n' ] { token lexbuf }
+| "do" { DO }
 | "if" { IF }
 | "in" { IN }
 | "of" { OF }
