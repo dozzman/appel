@@ -6,12 +6,16 @@
   exception Unexpected_end_of_file
   exception Unmatched_end_of_comment
   exception Unclosed_comment
+  exception Invalid_character_code
   let comment_counter = ref 0
+  let string_buffer = ref ""
 }
 
 let ch = [ 'a' - 'z' 'A' - 'Z' ]
 let digit = [ '0' - '9' ]
 let id = ch ( ch | digit )* 
+
+let whitespace = [ ' ' '\t' '\n' ]
 
 rule token = parse
 | [ ' ' '\t' ] { token lexbuf }
@@ -37,7 +41,7 @@ rule token = parse
 | id as lxid { ID( lxid ) }
 | digit+ as lxnum { NUM( int_of_string lxnum ) }
 
-| '"' ( [ ^ '"' ]+ as lxstring ) '"' { STRING( lxstring ) } 
+| '"' { string_buffer := ""; str lexbuf } 
 
 | '.' { DOT }
 | '(' { LPAREN }
@@ -99,3 +103,27 @@ and comment = parse
   raise Unclosed_comment
 }
 | _ { comment lexbuf }
+
+and str = parse
+| "\\n" { string_buffer := !string_buffer ^ "\n"; str lexbuf }
+| "\\t" { string_buffer := !string_buffer ^ "\t"; str lexbuf }
+| "\\\"" { string_buffer := !string_buffer ^ "\""; str lexbuf }
+| "\\\\" { string_buffer := !string_buffer ^ "\\"; str lexbuf } 
+| "\\" whitespace+ "\\" { str lexbuf }
+| "\"" { STRING( !string_buffer ) }
+| "\\" ((digit digit digit ) as lxnum_str ) {
+  let lxnum = int_of_string lxnum_str in
+    begin
+      try
+        string_buffer := !string_buffer ^ (String.make 1 (Char.chr lxnum) )
+      with Invalid_argument e -> 
+      begin
+        ErrorMsg.error "Invalid character code in string" lexbuf;
+        raise Invalid_character_code
+      end
+    end;
+    str lexbuf
+}
+  
+
+| _ as lxchr { string_buffer := !string_buffer ^ (String.make 1 lxchr); str lexbuf }
