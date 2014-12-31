@@ -1,8 +1,12 @@
 OCAMLC=ocamlc
 OCAMLLEX=ocamllex
-OCAMLYACC=ocamlyacc
+OCAMLYACC=menhir --explain
+OCAML=ocaml
 
 all: tiger.cma
+
+parse: all
+	${OCAML} tiger.cma parse_me.ml < parse_test.tig
 
 tiger.cma: parser.cmo errorMsg.cmo lexer.cmo
 	${OCAMLC} -a -o $@ $+
@@ -28,4 +32,6 @@ lexer.ml: lexer.mll parser.cmi errorMsg.cmi
 	${OCAMLC} -c $<
 
 clean:
-	-${RM} *.cmo *.cmi parser.ml parser.mli lexer.ml
+	-${RM} *.cmo *.cmi parser.ml parser.mli lexer.ml *.cma *.conflicts
+
+.PHONY: all parse clean

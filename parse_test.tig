@@ -1,0 +1,38 @@
+type int_tree = { l : int_tree, data : int, r : int_tree }
+type int_list = array of int
+
+type t = { x : int, y : int }
+
+var x := 0
+
+var x := (1+2)/3
+
+var y := ( -1 + 2) 
+
+var a := (1 + -2)
+
+var a := (a & b | c & d)
+
+var b := 1 = 2 | 3 = 4
+
+var x := 1 = 2 & 3 = 4 | 5 = 6 & ( 1 + 2 + 3 ) = 19
+
+var x := 1 > 2 & 3 < 4 & 1 >= 2 & 3 <= 7
+
+var x := int_tree { l = nil, data = 100, r = nil }
+
+var x := some_other_thing {}
+
+var x := t[12] of 0
+
+var x := t[ 1 + (2 + 3) - 4] of ( a & b )
+
+var test := ( 1 + 2; 3 + 4; exp := ession )
+
+function double ( n : int ) : int = n + 1
+function add ( x : int, y: int ) : int = x + y
+
+function say_hello () : string = "herroooo"
+/*
+function wait () = while
+*/

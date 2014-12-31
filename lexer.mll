@@ -1,6 +1,5 @@
 {
   open Parser
-  exception Eof
   exception Unexpected_char_error
   exception Unclosed_string
   exception Unexpected_end_of_file
@@ -13,7 +12,7 @@
 
 let ch = [ 'a' - 'z' 'A' - 'Z' ]
 let digit = [ '0' - '9' ]
-let id = ch ( ch | digit )* 
+let id = ch ( ch | digit | '_' )* 
 
 let whitespace = [ ' ' '\t' '\n' ]
 
@@ -57,6 +56,7 @@ rule token = parse
 
 | '=' { EQ }
 | "<>" { NEQ }
+| "+" { PLUS }
 | '-' { MINUS }
 | '*' { TIMES }
 | '/' { DIV }
@@ -73,7 +73,7 @@ rule token = parse
   raise Unmatched_end_of_comment
 }
 
-| eof { raise Eof }
+| eof { EOF }
 
 | _ as lxbad { 
   if Lexing.lexeme_char lexbuf 0 = '"' then
