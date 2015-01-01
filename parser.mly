@@ -67,7 +67,7 @@
 %%
 
 main:
-| decs EOF { print_newline(); print_endline "end of file" }
+| exp EOF { print_newline(); print_endline "end of file" }
 ;
 
 decs:
@@ -109,9 +109,9 @@ control:
 | WHILE exp DO exp {}
 | IF exp THEN exp {}
 | IF exp THEN exp ELSE exp {}
-| FOR ASSIGN exp TO exp DO exp {}
+| FOR lvalue ASSIGN exp TO exp DO exp {}
 | BREAK {}
-| LET decs IN expseq END {}
+| LET decs IN exp END {}
 ;
 
 assign:
@@ -143,13 +143,23 @@ arithExp:
 ;
 
 funcall:
-| ID LPAREN exps RPAREN {}
+| ID LPAREN explist RPAREN {}
 ;
 
 lvalue:
 | ID {}
 | lvalue DOT ID {}
 | lvalue LBRACK exp RBRACK {}
+;
+
+explist:
+| {}
+| exp explistMore {}
+;
+
+explistMore:
+| {}
+| COMMA exp explistMore {}
 ;
 
 expseq:

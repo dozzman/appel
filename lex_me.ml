@@ -1,6 +1,8 @@
 open Parser 
 open Lexer
 
+exception Eof
+
 let token_to_string t = match t with
 | TYPE -> "TYPE    "
 | ARRAY -> "ARRAY    "
@@ -48,12 +50,12 @@ let token_to_string t = match t with
 | LTEQ -> "LTEQ    "
 | AND -> "AND    "
 | OR -> "OR    "
-| EOF -> "EOF    "
+| EOF -> "EOF    "; raise Eof
 
 let () =
   try
-    let lexbuf = Lexing.from_channel stdin in
-      while true do
-        print_string (token_to_string (token lexbuf))
-      done
-  with Eof -> print_newline ()
+  let lexbuf = Lexing.from_channel stdin in
+    while true do
+      print_string (token_to_string (token lexbuf))
+    done
+  with Eof -> ()
