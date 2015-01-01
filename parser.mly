@@ -47,12 +47,18 @@
 %token OR 
 %token EOF 
 
+%nonassoc ASSIGN DO THEN
+%right ELSE
+
+%nonassoc REDUCE_ARRAY_DEF
 
 %left OR
 %left AND
 %nonassoc GT LT GTEQ LTEQ EQ NEQ
 %left PLUS MINUS
 %left TIMES DIV
+
+%left UMINUS
 
 %start main
 
@@ -81,54 +87,63 @@ vardec:
 ;
 
 fundec:
-| FUNCTION ID LPAREN tyfields RPAREN EQ progExp {}
-| FUNCTION ID LPAREN tyfields RPAREN COLON ID EQ progExp {}
-;
-
-progExp:
-| exp {}
-| stm {}
+| FUNCTION ID LPAREN tyfields RPAREN EQ exp {}
+| FUNCTION ID LPAREN tyfields RPAREN COLON ID EQ exp {}
 ;
 
 exp:
 | arithExp {}
-| nonArithTerm {}
-;
-
-nonArithTerm:
-| lvalue LBRACK exp RBRACK OF exp {}
-| ID recdec {}
-;
-
-expTerm:
-| NIL {}
-| LPAREN progExps RPAREN {}
-| MINUS arithExp {} 
-| ID LPAREN progExps RPAREN {}
+| arrayDef {}
+| recDef {}
+| expseq {}
+| funcall {}
+| assign {}
 | lvalue {}
+| control {}
+| NIL {}
 | NUM {}
 | STRING {}
 ;
 
-arithExp:
-| arithExp PLUS arithExp {}
-| arithExp MINUS arithExp {}
-| arithExp TIMES arithExp {}
-| arithExp DIV arithExp {}
-| arithExp GT arithExp {}
-| arithExp LT arithExp {}
-| arithExp GTEQ arithExp {}
-| arithExp LTEQ arithExp {}
-| arithExp EQ arithExp {}
-| arithExp NEQ arithExp {}
-| arithExp OR arithExp {}
-| arithExp AND arithExp {}
-| expTerm {}
+control:
+| WHILE exp DO exp {}
+| IF exp THEN exp {}
+| IF exp THEN exp ELSE exp {}
+| FOR ASSIGN exp TO exp DO exp {}
+| BREAK {}
+| LET decs IN expseq END {}
 ;
 
-stm:
+assign:
 | lvalue ASSIGN exp {}
-| IF exp THEN progExp {}
+;
+
+arrayDef:
+| lvalue LBRACK exp RBRACK OF exp %prec REDUCE_ARRAY_DEF {}
+;
+
+recDef:
+| ID recdec {}
+;
+
+arithExp:
+| MINUS exp %prec UMINUS {} 
+| exp PLUS exp {}
+| exp MINUS exp {}
+| exp TIMES exp {}
+| exp DIV exp {}
+| exp GT exp {}
+| exp LT exp {}
+| exp GTEQ exp {}
+| exp LTEQ exp {}
+| exp EQ exp {}
+| exp NEQ exp {}
+| exp OR exp {}
+| exp AND exp {}
+;
+
+funcall:
+| ID LPAREN exps RPAREN {}
 ;
 
 lvalue:
@@ -137,10 +152,14 @@ lvalue:
 | lvalue LBRACK exp RBRACK {}
 ;
 
-progExps:
+expseq:
+| LPAREN exps RPAREN {}
+;
+
+exps:
 | {}
-| progExp {}
-| progExps SEMI progExp {}
+| exp {}
+| exps SEMI exp {}
 ;
 
 tydec:
@@ -169,10 +188,10 @@ recdec:
 
 recfields:
 | {}
-| ID EQ progExp recfieldsMore {}
+| ID EQ exp recfieldsMore {}
 ;
 
 recfieldsMore:
 | {}
-| COMMA ID EQ progExp recfieldsMore {}
+| COMMA ID EQ exp recfieldsMore {}
 ;
