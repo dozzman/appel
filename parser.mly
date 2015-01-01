@@ -89,24 +89,72 @@ fundec:
 ;
 
 exp:
-| expTerm arithExp {}
-| soloTerm {}
+| orTerm orableExp {}
+| nonArithTerm {}
 | stm {}
 ;
 
-soloTerm:
+nonArithTerm:
 | ID LBRACK exp RBRACK OF exp {}
+| ID recdec {}
 ;
 
 expTerm:
 | NIL {}
 | LPAREN exps RPAREN {}
 | MINUS expTerm %prec UMINUS {} 
-| ID recdec {}
 | ID LPAREN exps RPAREN {}
 | lvalue {}
 | NUM {}
 | STRING {}
+;
+
+orableExp:
+| OR orTerm orableExp {}
+| {}
+;
+
+orTerm:
+| andTerm andableExp {}
+;
+
+andableExp:
+| AND andTerm andableExp {}
+| {}
+;
+
+andTerm:
+| compareTerm comparableExp {}
+;
+
+comparableExp:
+| GT compareTerm comparableExp {}
+| LT compareTerm comparableExp {}
+| GTEQ compareTerm comparableExp {}
+| LTEQ compareTerm comparableExp {}
+| EQ compareTerm comparableExp {}
+| NEQ compareTerm comparableExp {}
+| {}
+;
+
+compareTerm:
+| addTerm addableExp {}
+;
+
+addableExp:
+| PLUS addTerm addableExp {}
+| MINUS addTerm addableExp {}
+| {}
+;
+
+addTerm:
+| expTerm factorableExp {}
+;
+
+factorableExp:
+| TIMES expTerm factorableExp {}
+| DIV expTerm factorableExp {}
+| {}
 ;
 
 arithExp:
@@ -123,6 +171,7 @@ arithExp:
 | OR expTerm arithExp {}
 | AND expTerm arithExp {}
 | {}
+;
 
 stm:
 | ID ASSIGN exp {}
