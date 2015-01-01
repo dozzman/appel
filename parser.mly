@@ -47,15 +47,12 @@
 %token OR 
 %token EOF 
 
-%token UMINUS
 
-%nonassoc ASSIGN
 %left OR
 %left AND
 %nonassoc GT LT GTEQ LTEQ EQ NEQ
 %left PLUS MINUS
 %left TIMES DIV
-%left UMINUS
 
 %start main
 
@@ -84,107 +81,66 @@ vardec:
 ;
 
 fundec:
-| FUNCTION ID LPAREN tyfields RPAREN EQ exp {}
-| FUNCTION ID LPAREN tyfields RPAREN COLON ID EQ exp {}
+| FUNCTION ID LPAREN tyfields RPAREN EQ progExp {}
+| FUNCTION ID LPAREN tyfields RPAREN COLON ID EQ progExp {}
 ;
 
-exp:
-| orTerm orableExp {}
-| nonArithTerm {}
+progExp:
+| exp {}
 | stm {}
 ;
 
+exp:
+| arithExp {}
+| nonArithTerm {}
+;
+
 nonArithTerm:
-| ID LBRACK exp RBRACK OF exp {}
+| lvalue LBRACK exp RBRACK OF exp {}
 | ID recdec {}
 ;
 
 expTerm:
 | NIL {}
-| LPAREN exps RPAREN {}
-| MINUS expTerm %prec UMINUS {} 
-| ID LPAREN exps RPAREN {}
+| LPAREN progExps RPAREN {}
+| MINUS arithExp {} 
+| ID LPAREN progExps RPAREN {}
 | lvalue {}
 | NUM {}
 | STRING {}
 ;
 
-orableExp:
-| OR orTerm orableExp {}
-| {}
-;
-
-orTerm:
-| andTerm andableExp {}
-;
-
-andableExp:
-| AND andTerm andableExp {}
-| {}
-;
-
-andTerm:
-| compareTerm comparableExp {}
-;
-
-comparableExp:
-| GT compareTerm comparableExp {}
-| LT compareTerm comparableExp {}
-| GTEQ compareTerm comparableExp {}
-| LTEQ compareTerm comparableExp {}
-| EQ compareTerm comparableExp {}
-| NEQ compareTerm comparableExp {}
-| {}
-;
-
-compareTerm:
-| addTerm addableExp {}
-;
-
-addableExp:
-| PLUS addTerm addableExp {}
-| MINUS addTerm addableExp {}
-| {}
-;
-
-addTerm:
-| expTerm factorableExp {}
-;
-
-factorableExp:
-| TIMES expTerm factorableExp {}
-| DIV expTerm factorableExp {}
-| {}
-;
-
 arithExp:
-| PLUS expTerm arithExp {}
-| MINUS expTerm arithExp {}
-| TIMES expTerm arithExp {}
-| DIV expTerm arithExp {}
-| GT expTerm arithExp {}
-| LT expTerm arithExp {}
-| GTEQ expTerm arithExp {}
-| LTEQ expTerm arithExp {}
-| EQ expTerm arithExp {}
-| NEQ expTerm arithExp {}
-| OR expTerm arithExp {}
-| AND expTerm arithExp {}
-| {}
+| arithExp PLUS arithExp {}
+| arithExp MINUS arithExp {}
+| arithExp TIMES arithExp {}
+| arithExp DIV arithExp {}
+| arithExp GT arithExp {}
+| arithExp LT arithExp {}
+| arithExp GTEQ arithExp {}
+| arithExp LTEQ arithExp {}
+| arithExp EQ arithExp {}
+| arithExp NEQ arithExp {}
+| arithExp OR arithExp {}
+| arithExp AND arithExp {}
+| expTerm {}
 ;
 
 stm:
-| ID ASSIGN exp {}
+| lvalue ASSIGN exp {}
+| IF exp THEN progExp {}
 ;
 
 lvalue:
 | ID {}
+| lvalue DOT ID {}
+| lvalue LBRACK exp RBRACK {}
 ;
 
-exps:
+progExps:
 | {}
-| exp {}
-| exps SEMI exp {}
+| progExp {}
+| progExps SEMI progExp {}
 ;
 
 tydec:
@@ -199,12 +155,12 @@ ty:
 
 tyfields:
 | {}
-| ID COLON ID tyfieldsPrime {}
+| ID COLON ID tyfieldsMore {}
 ;
 
-tyfieldsPrime:
+tyfieldsMore:
 | {}
-| COMMA ID COLON ID tyfieldsPrime {}
+| COMMA ID COLON ID tyfieldsMore {}
 ;
 
 recdec:
@@ -213,10 +169,10 @@ recdec:
 
 recfields:
 | {}
-| ID EQ exp recfieldsPrime {}
+| ID EQ progExp recfieldsMore {}
 ;
 
-recfieldsPrime:
+recfieldsMore:
 | {}
-| COMMA ID EQ exp recfieldsPrime {}
+| COMMA ID EQ progExp recfieldsMore {}
 ;

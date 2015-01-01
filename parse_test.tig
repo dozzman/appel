@@ -25,14 +25,20 @@ var x := some_other_thing {}
 
 var x := t[12] of 0
 
-var x := t[ 1 + (2 + 3) - 4] of ( a & b )
+var x := t[ 1 + -(2 + 3) - 4] of ( a & b )
 
 var test := ( 1 + 2; 3 + 4; exp := ession )
+
+function or ( a : bool, b : bool ) = a | b
 
 function double ( n : int ) : int = n + 1
 function add ( x : int, y: int ) : int = x + y
 
 function say_hello () : string = "herroooo"
+
+function yahyah() = (t.l := 12)
+
+function yahyah() = (t[0].l := 12)
 /*
 function wait () = while
 */
