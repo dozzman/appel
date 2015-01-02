@@ -1,3 +1,12 @@
+%{
+  open Lexing
+  let pos_to_string pos = "Line: " ^ ( string_of_int pos.pos_lnum ) ^ ", Character: " ^ ( string_of_int (pos.pos_cnum - pos.pos_bol))
+  let eq_where_assign = ErrorMsg.error_at "expecting assign(:=) operator, did you mean (:=) instead of (=)?"
+  let trailing_comma = ErrorMsg.error_at "trailing comma(,) found"
+  let trailing_semi = ErrorMsg.error_at "trailing semi-colon(;) found"
+  let not_a_prog = ErrorMsg.error_at "all tiger programs are expressions, are you sure you haven't started declaring variables first?"
+  let unclosed_paren = ErrorMsg.error_at "unclosed parentheses found"
+%}
 
 %token TYPE
 %token ARRAY 
@@ -82,6 +91,8 @@ dec:
 vardec:
 | VAR ID ASSIGN exp {}
 | VAR ID COLON ID ASSIGN exp {}
+| VAR ID error { eq_where_assign $startpos $endpos }
+| VAR ID COLON ID error { eq_where_assign $startpos $endpos }
 ;
 
 fundec:
@@ -118,12 +129,14 @@ control:
 | IF exp THEN exp {}
 | IF exp THEN exp ELSE exp {}
 | FOR lvalue ASSIGN exp TO exp DO exp {}
+| FOR lvalue error { eq_where_assign $startpos $endpos }
 | BREAK {}
 | LET decs IN expseq END {}
 ;
 
 assign:
 | lvalue ASSIGN exp {}
+| lvalue error { eq_where_assign $startpos $endpos }
 ;
 
 arrayDef:

@@ -8,9 +8,10 @@ all: tiger.cma
 parse: all
 	${OCAML} tiger.cma parse_me.ml < parse_test.tig
 
-tiger.cma: parser.cmo errorMsg.cmo lexer.cmo
+tiger.cma: errorMsg.cmo parser.cmo lexer.cmo
 	${OCAMLC} -a -o $@ $+
-parser.ml: parser.mly
+
+parser.ml: parser.mly errorMsg.cmi
 	${OCAMLYACC} $<
 
 parser.mli: parser.mly

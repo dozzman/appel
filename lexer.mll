@@ -98,6 +98,8 @@ and comment = parse
     token lexbuf
 }
 
+| '\n' { Lexing.new_line lexbuf; comment lexbuf }
+
 | eof {
   ErrorMsg.error "Potentially Unclosed comment found" lexbuf;
   raise Unclosed_comment
@@ -106,6 +108,7 @@ and comment = parse
 
 and str = parse
 | "\\n" { string_buffer := !string_buffer ^ "\n"; str lexbuf }
+| '\n' { Lexing.new_line lexbuf; string_buffer := !string_buffer ^ "\n"; str lexbuf }
 | "\\t" { string_buffer := !string_buffer ^ "\t"; str lexbuf }
 | "\\\"" { string_buffer := !string_buffer ^ "\""; str lexbuf }
 | "\\\\" { string_buffer := !string_buffer ^ "\\"; str lexbuf } 
