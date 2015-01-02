@@ -1,3 +1,5 @@
+let 
+
 type int_tree = { l : int_tree, data : int, r : int_tree }
 type int_list = array of int
 
@@ -7,7 +9,7 @@ var x := 0
 
 var x := (1+2)/3
 
-var y := ( -1 + 2) 
+var y :=  a := -1 + 2 
 
 var a := (1 + -2)
 
@@ -39,6 +41,11 @@ function say_hello () : string = "herroooo"
 function yahyah() = (t.l := 12)
 
 function yahyah() = (t[0].l := 12)
-/*
-function wait () = while
-*/
+
+function fact ( n : int ) =
+    if n = 0 then 1
+    else if n = 1 then 1
+
+in
+    fact(); yahyah( 12 ) 
+end

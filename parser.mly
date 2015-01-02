@@ -47,10 +47,8 @@
 %token OR 
 %token EOF 
 
-%nonassoc ASSIGN DO THEN
+%nonassoc ASSIGN DO THEN OF
 %right ELSE
-
-%nonassoc REDUCE_ARRAY_DEF
 
 %left OR
 %left AND
@@ -60,14 +58,14 @@
 
 %left UMINUS
 
-%start main
+%start prog
 
-%type <unit> main
+%type <unit> prog
 
 %%
 
-main:
-| exp EOF { print_newline(); print_endline "end of file" }
+prog:
+| exp EOF { print_newline(); print_endline "ACCEPT" }
 ;
 
 decs:
@@ -95,14 +93,24 @@ exp:
 | arithExp {}
 | arrayDef {}
 | recDef {}
-| expseq {}
 | funcall {}
 | assign {}
 | lvalue {}
 | control {}
+| LPAREN expseq RPAREN {}
 | NIL {}
 | NUM {}
 | STRING {}
+;
+
+expseq:
+| exp expseqMore {}
+| {}
+;
+
+expseqMore:
+| SEMI exp expseqMore {}
+| {}
 ;
 
 control:
@@ -111,7 +119,7 @@ control:
 | IF exp THEN exp ELSE exp {}
 | FOR lvalue ASSIGN exp TO exp DO exp {}
 | BREAK {}
-| LET decs IN exp END {}
+| LET decs IN expseq END {}
 ;
 
 assign:
@@ -119,7 +127,7 @@ assign:
 ;
 
 arrayDef:
-| lvalue LBRACK exp RBRACK OF exp %prec REDUCE_ARRAY_DEF {}
+| lvalue LBRACK exp RBRACK OF exp {}
 ;
 
 recDef:
@@ -146,12 +154,6 @@ funcall:
 | ID LPAREN explist RPAREN {}
 ;
 
-lvalue:
-| ID {}
-| lvalue DOT ID {}
-| lvalue LBRACK exp RBRACK {}
-;
-
 explist:
 | {}
 | exp explistMore {}
@@ -162,15 +164,12 @@ explistMore:
 | COMMA exp explistMore {}
 ;
 
-expseq:
-| LPAREN exps RPAREN {}
+lvalue:
+| ID {}
+| lvalue DOT ID {}
+| lvalue LBRACK exp RBRACK {}
 ;
 
-exps:
-| {}
-| exp {}
-| exps SEMI exp {}
-;
 
 tydec:
 | TYPE ID EQ ty {}
