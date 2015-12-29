@@ -74,7 +74,7 @@
 %%
 
 prog:
-| exp EOF { print_newline(); print_endline "ACCEPT" }
+| decs EOF { print_newline(); print_endline "ACCEPT" }
 
 decs:
 | {}
