@@ -57,7 +57,7 @@
 %token EOF 
 
 %nonassoc ASSIGN DO THEN OF
-%right ELSE
+%nonassoc ELSE
 
 %left OR
 %left AND
@@ -75,30 +75,41 @@
 
 prog:
 | exp EOF { print_newline(); print_endline "ACCEPT" }
-;
 
 decs:
 | {}
 | dec decs {}
-;
 
 dec:
 | tydec {}
 | vardec {}
 | fundec {}
-;
+
+tydec:
+| TYPE ID EQ ty {}
+
+ty:
+| ID {}
+| LBRACE tyfields RBRACE {}
+| ARRAY OF ID {}
+
+tyfields:
+| {}
+| ID COLON ID tyfieldsMore {}
+
+tyfieldsMore:
+| {}
+| COMMA ID COLON ID tyfieldsMore {}
 
 vardec:
 | VAR ID ASSIGN exp {}
 | VAR ID COLON ID ASSIGN exp {}
 | VAR ID error { eq_where_assign $startpos $endpos }
 | VAR ID COLON ID error { eq_where_assign $startpos $endpos }
-;
 
 fundec:
 | FUNCTION ID LPAREN tyfields RPAREN EQ exp {}
 | FUNCTION ID LPAREN tyfields RPAREN COLON ID EQ exp {}
-;
 
 exp:
 | arithExp {}
@@ -112,17 +123,14 @@ exp:
 | NIL {}
 | NUM {}
 | STRING {}
-;
 
 expseq:
 | exp expseqMore {}
 | {}
-;
 
 expseqMore:
 | SEMI exp expseqMore {}
 | {}
-;
 
 control:
 | WHILE exp DO exp {}
@@ -132,20 +140,16 @@ control:
 | FOR lvalue error { eq_where_assign $startpos $endpos }
 | BREAK {}
 | LET decs IN expseq END {}
-;
 
 assign:
 | lvalue ASSIGN exp {}
 | lvalue error { eq_where_assign $startpos $endpos }
-;
 
 arrayDef:
-| lvalue LBRACK exp RBRACK OF exp {}
-;
+| ID LBRACK exp RBRACK OF exp {}
 
 recDef:
-| ID recdec {}
-;
+| ID LBRACE recfields RBRACE {}
 
 arithExp:
 | MINUS exp %prec UMINUS {} 
@@ -161,59 +165,30 @@ arithExp:
 | exp NEQ exp {}
 | exp OR exp {}
 | exp AND exp {}
-;
 
 funcall:
 | ID LPAREN explist RPAREN {}
-;
 
 explist:
 | {}
 | exp explistMore {}
-;
 
 explistMore:
 | {}
 | COMMA exp explistMore {}
-;
 
 lvalue:
-| ID {}
-| lvalue DOT ID {}
-| lvalue LBRACK exp RBRACK {}
-;
+| ID deeplvalue{}
 
-
-tydec:
-| TYPE ID EQ ty {}
-;
-
-ty:
-| ID {}
-| LBRACE tyfields RBRACE {}
-| ARRAY OF ID {}
-;
-
-tyfields:
+deeplvalue:
+| LBRACK exp RBRACK deeplvalue {}
+| DOT deeplvalue {}
 | {}
-| ID COLON ID tyfieldsMore {}
-;
-
-tyfieldsMore:
-| {}
-| COMMA ID COLON ID tyfieldsMore {}
-;
-
-recdec:
-| LBRACE recfields RBRACE {}
-;
 
 recfields:
-| {}
 | ID EQ exp recfieldsMore {}
-;
+| {}
 
 recfieldsMore:
 | {}
 | COMMA ID EQ exp recfieldsMore {}
-;
