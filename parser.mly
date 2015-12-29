@@ -75,6 +75,7 @@
 
 prog:
 | decs EOF { print_newline(); print_endline "ACCEPT" }
+| exp EOF { print_newline (); print_endline "ACCEPT" }
 
 decs:
 | {}
@@ -182,7 +183,7 @@ lvalue:
 
 deeplvalue:
 | LBRACK exp RBRACK deeplvalue {}
-| DOT deeplvalue {}
+| DOT ID deeplvalue {}
 | {}
 
 recfields:
