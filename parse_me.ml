@@ -3,5 +3,5 @@ open Lexer
 
 let _ =
   let lexbuf = Lexing.from_channel stdin in
-    ignore (Parser.prog Lexer.token lexbuf)
+    print_string (Absyn.string_of_exp (Parser.prog Lexer.token lexbuf))
 

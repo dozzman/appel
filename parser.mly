@@ -4,8 +4,10 @@
   let eq_where_assign = ErrorMsg.error_at "expecting assign(:=) operator, did you mean (:=) instead of (=)?"
   let trailing_comma = ErrorMsg.error_at "trailing comma(,) found"
   let trailing_semi = ErrorMsg.error_at "trailing semi-colon(;) found"
-  let not_a_prog = ErrorMsg.error_at "all tiger programs are expressions, are you sure you haven't started declaring variables first?"
   let unclosed_paren = ErrorMsg.error_at "unclosed parentheses found"
+  open Absyn
+
+  let global_escape = ref true
 %}
 
 %token TYPE
@@ -56,7 +58,9 @@
 %token OR 
 %token EOF 
 
-%nonassoc ASSIGN DO THEN OF
+%nonassoc DO THEN
+(* not useful anymore apparently *)
+(*%nonassoc ASSIGN OF *)
 %nonassoc ELSE
 
 %left OR
@@ -69,13 +73,13 @@
 
 %start prog
 
-%type <unit> prog
+%type <Absyn.exp> prog
 
 %%
 
 prog:
-| decs EOF { print_newline(); print_endline "ACCEPT" }
-| exp EOF { print_newline (); print_endline "ACCEPT" }
+| decs EOF { NilExp }
+| exp EOF { $1 }
 
 decs:
 | {}
@@ -105,42 +109,42 @@ tyfieldsMore:
 vardec:
 | VAR ID ASSIGN exp {}
 | VAR ID COLON ID ASSIGN exp {}
-| VAR ID error { eq_where_assign $startpos $endpos }
-| VAR ID COLON ID error { eq_where_assign $startpos $endpos }
+| VAR ID error exp { eq_where_assign $startpos $endpos }
+| VAR ID COLON ID error exp { eq_where_assign $startpos $endpos }
 
 fundec:
 | FUNCTION ID LPAREN tyfields RPAREN EQ exp {}
 | FUNCTION ID LPAREN tyfields RPAREN COLON ID EQ exp {}
 
 exp:
-| arithExp {}
-| arrayDef {}
+| arithExp { $1 }
+(*| arrayDef {}
 | recDef {}
 | funcall {}
-| assign {}
-| lvalue {}
-| control {}
-| LPAREN expseq RPAREN {}
-| NIL {}
-| NUM {}
-| STRING {}
+| assign {}*)
+| LPAREN expseq RPAREN  { $2 }
+| lvalue { VarExp $1 }
+| control { $1 }
+| NIL { NilExp }
+| NUM { IntExp $1 }
+| STRING { StringExp ($1, $startpos) }
 
 expseq:
-| exp expseqMore {}
-| {}
+| exp expseqMore { match $2 with SeqExp l -> SeqExp (($1, $startpos) :: l) | _ -> raise Parsing.Parse_error }
+| {SeqExp []}
 
 expseqMore:
-| SEMI exp expseqMore {}
-| {}
+| SEMI exp expseqMore { match $3 with SeqExp l -> SeqExp (($2, $startpos) :: l) | _ -> raise Parsing.Parse_error }
+| {SeqExp []}
 
 control:
-| WHILE exp DO exp {}
-| IF exp THEN exp {}
-| IF exp THEN exp ELSE exp {}
-| FOR lvalue ASSIGN exp TO exp DO exp {}
-| FOR lvalue error { eq_where_assign $startpos $endpos }
-| BREAK {}
-| LET decs IN expseq END {}
+| WHILE exp DO exp { WhileExp {test = $2; body = $4; pos = $startpos} }
+| IF exp THEN exp { IfExp {test = $2; thenexp = $4; elseexp = None; pos = $startpos} }
+| IF exp THEN exp ELSE exp { IfExp {test = $2; thenexp = $4; elseexp = Some $6; pos = $startpos} }
+| FOR ID ASSIGN exp TO exp DO exp { ForExp {var = $2;  escape = global_escape; lo = $4; hi = $6; body = $8; pos = $startpos} }
+| FOR ID error exp TO exp DO exp { eq_where_assign $startpos $endpos; ForExp {var = $2;  escape = global_escape; lo = $4; hi = $6; body = $8; pos = $startpos} }
+| BREAK {BreakExp $startpos}
+(*| LET decs IN expseq END {LetExp}*)
 
 assign:
 | lvalue ASSIGN exp {}
@@ -153,19 +157,19 @@ recDef:
 | ID LBRACE recfields RBRACE {}
 
 arithExp:
-| MINUS exp %prec UMINUS {} 
-| exp PLUS exp {}
-| exp MINUS exp {}
-| exp TIMES exp {}
-| exp DIV exp {}
-| exp GT exp {}
-| exp LT exp {}
-| exp GTEQ exp {}
-| exp LTEQ exp {}
-| exp EQ exp {}
-| exp NEQ exp {}
-| exp OR exp {}
-| exp AND exp {}
+| MINUS exp %prec UMINUS { OpExp {lhs = IntExp 0; op = MinusOp; rhs = $2; pos = $startpos } }
+| exp PLUS exp { OpExp {lhs = $1; op = PlusOp; rhs = $3; pos = $startpos } }
+| exp MINUS exp { OpExp {lhs = $1; op = MinusOp; rhs = $3; pos = $startpos } }
+| exp TIMES exp { OpExp {lhs = $1; op = TimesOp; rhs = $3; pos = $startpos } }
+| exp DIV exp { OpExp {lhs = $1; op = DivideOp; rhs = $3; pos = $startpos } }
+| exp GT exp { OpExp {lhs = $1; op = GtOp; rhs = $3; pos = $startpos } }
+| exp LT exp { OpExp {lhs = $1; op = LtOp; rhs = $3; pos = $startpos } }
+| exp GTEQ exp { OpExp {lhs = $1; op = GeOp; rhs = $3; pos = $startpos } }
+| exp LTEQ exp { OpExp {lhs = $1; op = LeOp; rhs = $3; pos = $startpos } }
+| exp EQ exp { OpExp {lhs = $1; op = EqOp; rhs = $3; pos = $startpos } }
+| exp NEQ exp { OpExp {lhs = $1; op = NeqOp; rhs = $3; pos = $startpos } }
+| exp OR exp { OpExp {lhs = $1; op = OrOp; rhs = $3; pos = $startpos } }
+| exp AND exp { OpExp {lhs = $1; op = AndOp; rhs = $3; pos = $startpos } }
 
 funcall:
 | ID LPAREN explist RPAREN {}
@@ -179,12 +183,9 @@ explistMore:
 | COMMA exp explistMore {}
 
 lvalue:
-| ID deeplvalue{}
-
-deeplvalue:
-| LBRACK exp RBRACK deeplvalue {}
-| DOT ID deeplvalue {}
-| {}
+| lvalue LBRACK exp RBRACK { SubscriptVar ($1, $3, $startpos) }
+| lvalue DOT ID { FieldVar ($1, $3, $startpos) }
+| ID { SimpleVar ($1, $startpos) }
 
 recfields:
 | ID EQ exp recfieldsMore {}
