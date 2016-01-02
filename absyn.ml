@@ -15,14 +15,16 @@ and arrayexp = { typ: symbol; size: exp; init: exp; pos: pos }
 and ifexp = { test: exp; thenexp: exp; elseexp: exp option; pos: pos }
 and whileexp = { test: exp; body: exp; pos: pos }
 and forexp = { var: symbol; escape: bool ref; lo: exp; hi: exp; body: exp; pos: pos }
-and letexp = { decs: dec list; body: exp; pos: pos }
+and letexp = { decs: dec list; body: (exp * pos) list; pos: pos }
 and tydec = { name: symbol; ty: ty; pos: pos }
 and vardec = { name: symbol; escape: bool ref; typ: (symbol * pos) option; init: exp; pos: pos }
+and assignexp = { var: var; exp: exp; pos: pos }
 
 and exp =
 | VarExp of var
 | NilExp
 | IntExp of int
+| AssignExp of assignexp
 | StringExp of string * pos
 | SeqExp of (exp * pos) list
 | CallExp of callexp
