@@ -8,48 +8,33 @@ type var =
 | FieldVar of var * symbol * pos
 | SubscriptVar of var * exp * pos
 
-and callexp = { func: symbol; args: exp list; pos: pos }
-and opexp = { lhs: exp; op: binop; rhs: exp; pos: pos }
-and recordexp = { fields: (symbol * exp * pos) list; typ: symbol; pos: pos }
-and arrayexp = { typ: symbol; size: exp; init: exp; pos: pos }
-and ifexp = { test: exp; thenexp: exp; elseexp: exp option; pos: pos }
-and whileexp = { test: exp; body: exp; pos: pos }
-and forexp = { var: symbol; escape: bool ref; lo: exp; hi: exp; body: exp; pos: pos }
-and letexp = { decs: dec list; body: (exp * pos) list; pos: pos }
-and tydec = { name: symbol; ty: ty; pos: pos }
-and vardec = { name: symbol; escape: bool ref; typ: (symbol * pos) option; init: exp; pos: pos }
-and assignexp = { var: var; exp: exp; pos: pos }
-
 and exp =
 | VarExp of var
 | NilExp
 | IntExp of int
-| AssignExp of assignexp
-| StringExp of string * pos
-| SeqExp of (exp * pos) list
-| CallExp of callexp
-| OpExp of opexp
-| RecordExp of recordexp
-| ArrayExp of arrayexp
-| IfExp of ifexp
-| WhileExp of whileexp
-| ForExp of forexp
+| AssignExp of var * exp * pos (* lvalue, expression, pos *)
+| StringExp of string * pos (* string, pos *)
+| SeqExp of (exp * pos) list (* (expression, pos) list *)
+| CallExp of symbol * exp list * pos (* funcion, parameter list, pos *)
+| OpExp of exp * binop * exp * pos (* lhs, operator, rhs, pos *)
+| RecordExp of (symbol * exp * pos) list * symbol * pos (* (record field, value, pos) list, record (type) name, pos *)
+| ArrayExp of symbol * exp * exp * pos (* name, size, initial value, pos *)
+| IfExp of exp * exp * exp option * pos (* if test, then clause, else clause, pos *)
+| WhileExp of exp * exp * pos (* while test, while body, pos *)
+| ForExp of symbol * bool ref * exp * exp * exp * pos (* variable, escape, low, high, for body, pos *)
 | BreakExp of pos
-| LetExp of letexp
+| LetExp of dec list * (exp * pos) list * pos (* delcaration list, expression sequence, pos *)
 
 and dec =
-| TyDec of tydec
-| VarDec of vardec
-| FunDec of fundec list
+| TyDec of symbol * ty * pos (* type name, type, pos *)
+| VarDec of symbol * bool ref * (symbol * pos) option * exp * pos (* var name, escape, optional type name, expression, pos *)
+| FunDec of (symbol * (symbol * bool ref * symbol * pos) list * (symbol * pos) option * exp * pos) list
+            (* (function name, (field name, escape, type name, pos) field list, optional return type, body, pos) list *)
 
 and ty = 
-| NameTy of symbol * pos
-| RecordTy of field list
-| ArrayTy of symbol * pos
-
-and fundec = { name: symbol; params: field list; result: (symbol * pos) option; body: exp; pos: pos }
-
-and field = { name: symbol; escape: bool ref; typ: symbol; pos: pos }
+| NameTy of symbol * pos (* type name, pos *)
+| RecordTy of (symbol * bool ref * symbol * pos) list (* field name, escape, field type, pos *)
+| ArrayTy of symbol * pos (* array type, pos *)
 
 and binop =
 | PlusOp | MinusOp | TimesOp | DivideOp
@@ -76,9 +61,9 @@ let rec string_of_var = function
 | SubscriptVar (var, exp, _) -> (string_of_var var) ^ "[" ^ (string_of_exp exp) ^ "]"
 
 and string_of_exp = function
-| OpExp x -> "( " ^ (string_of_exp x.lhs) ^ " " ^ string_of_op x.op ^ " " ^ (string_of_exp x.rhs) ^ " )" 
+| OpExp (lhs, op, rhs, _) -> "( " ^ (string_of_exp lhs) ^ " " ^ string_of_op op ^ " " ^ (string_of_exp rhs) ^ " )" 
 | IntExp x -> string_of_int x
-| WhileExp x -> "WHILE " ^ (string_of_exp x.test) ^ " DO " ^ (string_of_exp x.body)
+| WhileExp (test, body, pos) -> "WHILE " ^ (string_of_exp test) ^ " DO " ^ (string_of_exp body)
 | VarExp x -> string_of_var x
 | NilExp -> "nil"
 | StringExp (s, _) -> "\"" ^ s ^ "\""

@@ -3,5 +3,5 @@
 for file in `ls tiger/testcases/`
 do
     echo "testing file $file"
-    ocaml tiger.cma parse_me.ml < tiger/testcases/$file
+    ./parse_me.native < tiger/testcases/$file
 done
