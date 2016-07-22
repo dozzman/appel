@@ -1,6 +1,6 @@
 (* Abstract Syntax Tree for Tiger *)
 
-type symbol = string
+type symbol = Symbol.symbol
 type pos = Lexing.position
 
 type var =
@@ -56,8 +56,8 @@ let string_of_op = function
 | OrOp -> "|"
 
 let rec string_of_var = function
-| SimpleVar (symbol, _) -> symbol
-| FieldVar (var, symbol, _) -> (string_of_var var) ^ "." ^ symbol
+| SimpleVar (symbol, _) -> Symbol.name symbol
+| FieldVar (var, symbol, _) -> (string_of_var var) ^ "." ^ (Symbol.name symbol)
 | SubscriptVar (var, exp, _) -> (string_of_var var) ^ "[" ^ (string_of_exp exp) ^ "]"
 
 and string_of_exp = function
@@ -71,4 +71,7 @@ and string_of_exp = function
   | [(exp,_)] -> "( " ^ string_of_exp exp ^ " )"
   | x -> "( " ^ (List.fold_left (fun acc (exp, _) -> acc ^ string_of_exp exp ^ "; ") "" x) ^ " )"
   end
+| LetExp (decs, expseq, _) -> "LET\n\t" ^ (List.fold_left (fun x y -> (string_of_dec x) ^ "\n\t") "" decs) ^ "\nIN " ^ (string_of_exp (SeqExp expseq)) ^ " END"
 | _ -> "not-implemented"
+
+and string_of_dec _ = "not-implemented"
