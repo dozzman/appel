@@ -16,8 +16,7 @@ let symbol s =
 
 let name (s,n) = s
 
-module IntOrderedType =
-struct
+module IntOrderedType = struct
   type t = int
   let compare x1 x2 = x1 - x2
 end

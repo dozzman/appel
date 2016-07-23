@@ -9,7 +9,7 @@ type enventry =
 type tenv = ty S.table
 type venv = enventry S.table
 
-type env = {tenv : tenv; venv : venv}
+type env = {venv : venv; tenv : tenv}
 
 let base_tenv = 
   let tenv1 = S.empty in

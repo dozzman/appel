@@ -7,6 +7,7 @@ module S = Symbol
 
 exception Undefined_type
 exception Unimplemented
+exception Type_mismatch
 
 type expty = Translate.exp * ty
 
@@ -26,7 +27,6 @@ let check_int (exp, ty) pos =
 let check_string(exp, ty) pos =
   if ty != STRING then
     error_at_pos "string required" pos
-
 
 let rec transExp venv tenv main_exp = 
   let rec trexp =
@@ -86,14 +86,14 @@ let rec transExp venv tenv main_exp =
       check_int (trexp rhs) pos; 
       ( (), INT )
     | LetExp (decls, exps, pos) ->
-      let rec translate_decs (venv1, tenv1) = function
+      let rec translate_decs envs = function
       | dec::decs ->
-          let new_envs = transDec venv1 tenv1 dec in
-            translate_decs new_envs decs
-      | [] -> (venv1, tenv1)
+          let new_env = transDec envs.venv envs.tenv dec in
+            translate_decs new_env decs
+      | [] -> envs
       in
-        let (new_venv, new_tenv) = translate_decs (venv, tenv) decls in
-        let translated_exps = List.map (fun (exp, exp_pos) -> transExp new_venv new_tenv exp) exps in
+        let new_envs = translate_decs {venv = venv; tenv = tenv} decls in
+        let translated_exps = List.map (fun (exp, _) -> transExp new_envs.venv new_envs.tenv exp) exps in
           translated_exps |> List.rev |> List.hd
     | _ ->
       error_at_pos "unimplemented expression encountered" Lexing.dummy_pos;
@@ -147,14 +147,36 @@ and transDec venv tenv =
         end
       | [] -> []
       in
-        (venv, S.enter tenv dec_name (RECORD (parse_record_types record_entries, ref ())))
+        {venv = venv; tenv = S.enter tenv dec_name (RECORD (parse_record_types record_entries, ref ()))}
     | _ ->
       error_at_pos "Unimplemented type declaration encountered" Lexing.dummy_pos;
       raise Unimplemented
     end
+  | VarDec (var_symbol, escapes, optional_type_annotation_symbol, exp, pos) ->
+    let (exp_translation, exp_type) = transExp venv tenv exp in
+      begin match optional_type_annotation_symbol with
+      | Some (type_annotation_symbol, type_annotation_pos) ->
+        let optional_type_annotation = S.look tenv type_annotation_symbol in
+          begin match optional_type_annotation with
+          | Some type_annotation ->
+            if exp_type <> type_annotation then begin
+              error_at_pos ("Variable " ^ (S.name var_symbol) ^
+                            " declared as type " ^ string_of_type type_annotation ^
+                            " but is assigned with value of type " ^ string_of_type exp_type)
+                            pos;
+              raise Type_mismatch
+            end
+          | None ->
+            error_at_pos ("Undefined type " ^ (S.name type_annotation_symbol)) type_annotation_pos;
+            raise Undefined_type
+          end
+      | None -> ()
+      end;
+      {venv = S.enter venv var_symbol (VarEntry exp_type); tenv = tenv}
+
   | _ ->
     error_at_pos "unimplemented declaration encountered" Lexing.dummy_pos;
-    (venv, tenv)
+    {venv = venv; tenv = tenv}
   in
     function main_dec -> trdec main_dec
 
