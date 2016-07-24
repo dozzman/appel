@@ -3,38 +3,67 @@
 type symbol = Symbol.symbol
 type pos = Lexing.position
 
-type var =
-| SimpleVar of symbol * pos
-| FieldVar of var * symbol * pos
-| SubscriptVar of var * exp * pos
+type expression = {
+  exp_desc: exp;
+  exp_pos: pos
+}
+
+and declaration = {
+  dec_desc: dec;
+  dec_pos: pos
+}
+
+and type_expression = {
+  ty_desc: ty;
+  ty_pos: pos
+}
+
+and formal_parameter = {
+  param_name: symbol;
+  param_escapes: bool ref;
+  param_typename: symbol;
+  param_pos: pos
+}
+
+and record_parameter = {
+  recparam_name: symbol;
+  recparam_escapes: bool ref;
+  recparam_typename: symbol;
+  recparam_pos: pos
+}
+
+and var =
+| SimpleVar of symbol
+| FieldVar of var * symbol
+| SubscriptVar of var * expression
 
 and exp =
 | VarExp of var
 | NilExp
 | IntExp of int
-| AssignExp of var * exp * pos (* lvalue, expression, pos *)
-| StringExp of string * pos (* string, pos *)
-| SeqExp of (exp * pos) list (* (expression, pos) list *)
-| CallExp of symbol * exp list * pos (* funcion, parameter list, pos *)
-| OpExp of exp * binop * exp * pos (* lhs, operator, rhs, pos *)
-| RecordExp of (symbol * exp * pos) list * symbol * pos (* (record field, value, pos) list, record (type) name, pos *)
-| ArrayExp of symbol * exp * exp * pos (* name, size, initial value, pos *)
-| IfExp of exp * exp * exp option * pos (* if test, then clause, else clause, pos *)
-| WhileExp of exp * exp * pos (* while test, while body, pos *)
-| ForExp of symbol * bool ref * exp * exp * exp * pos (* variable, escape, low, high, for body, pos *)
-| BreakExp of pos
-| LetExp of dec list * (exp * pos) list * pos (* delcaration list, expression sequence, pos *)
+| AssignExp of var * expression (* lvalue, expression *)
+| StringExp of string (* string *)
+| SeqExp of expression list (* expression list *)
+| CallExp of symbol * expression list (* funcion name, parameter list *)
+| OpExp of expression * binop * expression (* lhs, operator, rhs *)
+| RecordExp of (symbol * expression) list * symbol (* (record field, value) list, record (type) name *)
+| ArrayExp of symbol * expression * expression (* name, size, initial value *)
+| IfExp of expression * expression * expression option (* if test, then clause, else clause *)
+| WhileExp of expression * expression (* while test, while body *)
+| ForExp of symbol * bool ref * expression * expression * expression (* variable, escape, low, high, for body *)
+| BreakExp
+| LetExp of declaration list * expression list (* delcaration list, expression sequence *)
 
 and dec =
-| TyDec of symbol * ty * pos (* type name, type, pos *)
-| VarDec of symbol * bool ref * (symbol * pos) option * exp * pos (* var name, escape, optional type name, expression, pos *)
-| FunDec of (symbol * (symbol * bool ref * symbol * pos) list * (symbol * pos) option * exp * pos) list
-            (* (function name, (field name, escape, type name, pos) field list, optional return type, body, pos) list *)
+| TyDec of symbol * type_expression (* type name, type *)
+| VarDec of symbol * bool ref * (symbol * pos) option * expression (* var name, escape, optional type name, expression, pos *)
+| FunDec of (symbol * formal_parameter list * (symbol * pos) option * expression) list
+            (* (function name, formal parameter list, optional return type, body, pos) list *)
 
 and ty = 
-| NameTy of symbol * pos (* type name, pos *)
-| RecordTy of (symbol * bool ref * symbol * pos) list (* field name, escape, field type, pos *)
-| ArrayTy of symbol * pos (* array type, pos *)
+| NameTy of symbol (* type name, pos *)
+| RecordTy of record_parameter list (* parameter list *)
+| ArrayTy of symbol (* array type, pos *)
 
 and binop =
 | PlusOp | MinusOp | TimesOp | DivideOp
@@ -56,22 +85,42 @@ let string_of_op = function
 | OrOp -> "|"
 
 let rec string_of_var = function
-| SimpleVar (symbol, _) -> Symbol.name symbol
-| FieldVar (var, symbol, _) -> (string_of_var var) ^ "." ^ (Symbol.name symbol)
-| SubscriptVar (var, exp, _) -> (string_of_var var) ^ "[" ^ (string_of_exp exp) ^ "]"
+| SimpleVar (symbol) -> Symbol.name symbol
+| FieldVar (var, symbol) -> (string_of_var var) ^ "." ^ (Symbol.name symbol)
+| SubscriptVar (var, exp) -> (string_of_var var) ^ "[" ^ (string_of_exp exp) ^ "]"
 
-and string_of_exp = function
-| OpExp (lhs, op, rhs, _) -> "( " ^ (string_of_exp lhs) ^ " " ^ string_of_op op ^ " " ^ (string_of_exp rhs) ^ " )" 
+and string_of_exp exp = match exp.exp_desc with
+| OpExp (lhs, op, rhs) -> "( " ^ (string_of_exp lhs) ^ " " ^ string_of_op op ^ " " ^ (string_of_exp rhs) ^ " )" 
 | IntExp x -> string_of_int x
-| WhileExp (test, body, pos) -> "WHILE " ^ (string_of_exp test) ^ " DO " ^ (string_of_exp body)
+| WhileExp (test, body) -> "WHILE " ^ (string_of_exp test) ^ " DO " ^ (string_of_exp body)
 | VarExp x -> string_of_var x
 | NilExp -> "nil"
-| StringExp (s, _) -> "\"" ^ s ^ "\""
-| SeqExp x -> begin match x with
-  | [(exp,_)] -> "( " ^ string_of_exp exp ^ " )"
-  | x -> "( " ^ (List.fold_left (fun acc (exp, _) -> acc ^ string_of_exp exp ^ "; ") "" x) ^ " )"
-  end
-| LetExp (decs, expseq, _) -> "LET\n\t" ^ (List.fold_left (fun x y -> (string_of_dec x) ^ "\n\t") "" decs) ^ "\nIN " ^ (string_of_exp (SeqExp expseq)) ^ " END"
+| StringExp s -> "\"" ^ s ^ "\""
+| SeqExp x -> string_of_expseq x
+| LetExp (decs, expseq) ->
+  let decs_description = string_of_decs decs in
+  let expseq_description = string_of_expseq expseq in
+    "LET\n\t" ^ decs_description
+    ^ "\nIN " ^ expseq_description ^ " END"
 | _ -> "not-implemented"
+
+and string_of_expseq = function
+| [exp] -> "( " ^ string_of_exp exp ^ " )"
+| expseq -> 
+  let expseq_description = 
+    List.fold_left 
+      (fun acc (exp) ->
+        acc ^ string_of_exp exp ^ "; ") 
+      ""
+      expseq
+  in
+    "( " ^ expseq_description ^ " )"
+
+and string_of_decs decs =
+  List.fold_left
+    (fun acc dec ->
+      (string_of_dec dec) ^ "\n\t")
+    ""
+    decs
 
 and string_of_dec _ = "not-implemented"
