@@ -18,6 +18,11 @@ and type_expression = {
   ty_pos: pos
 }
 
+and var_expression = {
+  var_desc: var;
+  var_pos: pos
+}
+
 and formal_parameter = {
   param_name: symbol;
   param_escapes: bool ref;
@@ -25,28 +30,26 @@ and formal_parameter = {
   param_pos: pos
 }
 
-and record_parameter = {
-  recparam_name: symbol;
-  recparam_escapes: bool ref;
-  recparam_typename: symbol;
-  recparam_pos: pos
+and record_label = {
+  reclabel_name: symbol;
+  reclabel_pos: pos
 }
 
 and var =
 | SimpleVar of symbol
-| FieldVar of var * symbol
-| SubscriptVar of var * expression
+| FieldVar of var_expression * symbol
+| SubscriptVar of var_expression * expression
 
 and exp =
-| VarExp of var
+| VarExp of var_expression
 | NilExp
 | IntExp of int
-| AssignExp of var * expression (* lvalue, expression *)
+| AssignExp of var_expression * expression (* lvalue, expression *)
 | StringExp of string (* string *)
 | SeqExp of expression list (* expression list *)
 | CallExp of symbol * expression list (* funcion name, parameter list *)
 | OpExp of expression * binop * expression (* lhs, operator, rhs *)
-| RecordExp of (symbol * expression) list * symbol (* (record field, value) list, record (type) name *)
+| RecordExp of (record_label * expression) list * symbol (* (record field, value) list, record (type) name *)
 | ArrayExp of symbol * expression * expression (* name, size, initial value *)
 | IfExp of expression * expression * expression option (* if test, then clause, else clause *)
 | WhileExp of expression * expression (* while test, while body *)
@@ -61,8 +64,8 @@ and dec =
             (* (function name, formal parameter list, optional return type, body, pos) list *)
 
 and ty = 
-| NameTy of symbol (* type name, pos *)
-| RecordTy of record_parameter list (* parameter list *)
+| NameTy of symbol (* type name *)
+| RecordTy of formal_parameter list (* parameter list *)
 | ArrayTy of symbol (* array type, pos *)
 
 and binop =
@@ -84,7 +87,7 @@ let string_of_op = function
 | AndOp -> "&"
 | OrOp -> "|"
 
-let rec string_of_var = function
+let rec string_of_var v = match v.var_desc with
 | SimpleVar (symbol) -> Symbol.name symbol
 | FieldVar (var, symbol) -> (string_of_var var) ^ "." ^ (Symbol.name symbol)
 | SubscriptVar (var, exp) -> (string_of_var var) ^ "[" ^ (string_of_exp exp) ^ "]"
