@@ -55,7 +55,7 @@ and exp =
 | WhileExp of expression * expression (* while test, while body *)
 | ForExp of symbol * bool ref * expression * expression * expression (* variable, escape, low, high, for body *)
 | BreakExp
-| LetExp of declaration list * expression list (* delcaration list, expression sequence *)
+| LetExp of declaration list * expression (* delcaration list, expression sequence *)
 
 and dec =
 | TyDec of symbol * type_expression (* type name, type *)
@@ -100,14 +100,15 @@ and string_of_exp exp = match exp.exp_desc with
 | NilExp -> "nil"
 | StringExp s -> "\"" ^ s ^ "\""
 | SeqExp x -> string_of_expseq x
-| LetExp (decs, expseq) ->
+| LetExp (decs, exp) ->
   let decs_description = string_of_decs decs in
-  let expseq_description = string_of_expseq expseq in
+  let expseq_description = string_of_exp exp in
     "LET\n\t" ^ decs_description
     ^ "\nIN " ^ expseq_description ^ " END"
 | _ -> "not-implemented"
 
 and string_of_expseq = function
+| [] -> "()"
 | [exp] -> "( " ^ string_of_exp exp ^ " )"
 | expseq -> 
   let expseq_description = 

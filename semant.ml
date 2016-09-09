@@ -20,94 +20,90 @@ let rec actual_ty t =
     end
   | _ -> t
 
-let check_int (exp, ty) pos =
+let check_int (_, ty) pos =
   if ty != INT then
     error_at_pos "integer required" pos
 
-let check_string(exp, ty) pos =
+let check_string(_, ty) pos =
   if ty != STRING then
     error_at_pos "string required" pos
 
-let rec transExp venv tenv main_exp = 
-  let rec trexp =
-    function
-    | VarExp (SimpleVar (symbol, pos)) ->
-      begin match S.look venv symbol with
-      | Some (VarEntry t) -> ((), t)
-      | Some (FunEntry _) -> error_at_pos "expected variable, found function" pos; ((), INT)
-      | None -> error_at_pos "undefined variable" pos; ((), INT)
-      end
-    | NilExp -> ( (), NIL)
-    | IntExp x -> ( (), INT)
-    | AssignExp (var, exp, pos) ->
+let rec transExp env main_exp = 
+  let rec trexp e = match e.exp_desc with
+    | VarExp vexp ->
+      trvar vexp
+    | NilExp -> ((), NIL)
+    | IntExp x -> ((), INT)
+    | AssignExp (var, exp) ->
       let (_, varty) as var1 = trvar var in
       let (_, expty) as exp1 = trexp exp in
       begin match varty with
-      | INT -> check_int exp1 pos; ((), UNIT)
-      | STRING -> check_string exp1 pos; ((), UNIT)
+      | INT -> check_int exp1 exp.exp_pos; ((), UNIT)
+      | STRING -> check_string var1 var.var_pos; ((), UNIT)
       | RECORD (_, unique) ->
         begin match expty with
         | RECORD (_, unique1) ->
           if unique != unique1 then begin
-            error_at_pos "attempt to assign a record of a different type" pos
+            error_at_pos "attempt to assign a record of a different type" e.exp_pos
           end;
           ((), UNIT)
         | _ ->
-          error_at_pos "attempt to assign record to non-record value" pos;
+          error_at_pos "attempt to assign record to non-record value" e.exp_pos;
           ((), UNIT)
         end
       | ARRAY (_, unique) ->
         begin match expty with
         | ARRAY (_, unique1) ->
           if unique != unique1 then begin
-            error_at_pos "attempt to assign an array of a different type" pos
+            error_at_pos "attempt to assign an array of a different type" e.exp_pos
           end;
           ((), UNIT)
         | _ ->
-          error_at_pos "attempt to assign array to non-array value" pos;
+          error_at_pos "attempt to assign array to non-array value" e.exp_pos;
           ((), UNIT)
         end
       | NIL ->
-        impossible "variable should never have type nil" pos;
+        impossible "variable should never have type nil" e.exp_pos;
         ((), UNIT)
       | UNIT ->
         ((), UNIT)
       | NAME _ ->
-        impossible "variable type should never be unencountered!" pos;
+        impossible "variable type should never be unencountered!" e.exp_pos;
         ((), UNIT)
       end
-    | StringExp (s, pos) -> ((), STRING)
-(*    | SeqExp expseq -> List.iter (function x -> tre*)
-    | OpExp (lhs, PlusOp, rhs, pos)
-    | OpExp (lhs, MinusOp, rhs, pos)
-    | OpExp (lhs, TimesOp, rhs, pos)
-    | OpExp (lhs, DivideOp, rhs, pos) ->
-      check_int (trexp lhs) pos;
-      check_int (trexp rhs) pos; 
+    | StringExp _ -> ((), STRING)
+    | SeqExp expseq ->
+        List.fold_left
+          (fun (_, _) exp -> transExp env exp)
+          ((), UNIT)
+          expseq
+    | OpExp (lhs, PlusOp, rhs)
+    | OpExp (lhs, MinusOp, rhs)
+    | OpExp (lhs, TimesOp, rhs)
+    | OpExp (lhs, DivideOp, rhs) ->
+      check_int (trexp lhs) e.exp_pos;
+      check_int (trexp rhs) e.exp_pos; 
       ( (), INT )
-    | LetExp (decls, exps, pos) ->
-      let rec translate_decs envs = function
-      | dec::decs ->
-          let new_env = transDec envs.venv envs.tenv dec in
-            translate_decs new_env decs
-      | [] -> envs
+    | LetExp (decls, exp) ->
+      let new_env = List.fold_left
+        (fun env dec -> transDec env dec)
+        env
+        decls
       in
-        let new_envs = translate_decs {venv = venv; tenv = tenv} decls in
-        let translated_exps = List.map (fun (exp, _) -> transExp new_envs.venv new_envs.tenv exp) exps in
-          translated_exps |> List.rev |> List.hd
+        transExp new_env exp
     | _ ->
       error_at_pos "unimplemented expression encountered" Lexing.dummy_pos;
       ( (), INT )
 
   (* Translate variable *)
-  and trvar = function
-    | SimpleVar (symbol, pos) ->
-      begin match S.look venv symbol with
+  and trvar v = match v.var_desc with
+    | SimpleVar symbol ->
+      begin match S.look env.venv symbol with
       | Some (VarEntry t) -> ((), actual_ty t)
-      | Some (FunEntry _) -> error_at_pos "cannot reference a function" pos;  ((), UNIT)
-      | None -> error_at_pos "undefined variable" pos; ((), UNIT)
+      | Some (FunEntry _) -> error_at_pos "cannot reference a function" v.var_pos;  ((), UNIT)
+      | None -> error_at_pos "undefined variable" v.var_pos; ((), UNIT)
       end
-    | FieldVar (var, symbol, pos) ->
+    | FieldVar (var, symbol) ->
       begin match trvar var with
       | (_, RECORD (symboltys, unique)) ->
         let field_type =
@@ -117,53 +113,59 @@ let rec transExp venv tenv main_exp =
           None
           symboltys in
         begin match field_type with
-        | None -> error_at_pos "unknown record field" pos; ((), UNIT)
+        | None -> error_at_pos "unknown record field" v.var_pos; ((), UNIT)
         | Some ty1 -> ((), actual_ty ty1)
         end
-      | _ -> error_at_pos "attempting to reference member of non-record type" pos; ((), UNIT)
+      | _ -> error_at_pos "attempting to reference member of non-record type"
+      v.var_pos; ((), UNIT)
       end
-    | SubscriptVar (var, exp, pos) ->
-        check_int (transExp venv tenv exp) pos;
+    | SubscriptVar (var, exp) ->
+        check_int (transExp env exp) v.var_pos;
         begin match trvar var with
         | (_, ARRAY (ty, unique)) -> ((), ty)
-        | _ -> error_at_pos "attempting to access array position of non-array type" pos; ((), UNIT)
+        | _ -> error_at_pos "attempting to access array position of non-array
+        type" v.var_pos; ((), UNIT)
         end
   in
     trexp main_exp
 
   (* translate declarations *)
-and transDec venv tenv =
-  let trdec = function
-  | TyDec (dec_name, dec_type, dec_pos) ->
-    begin match dec_type with
-    | RecordTy record_entries ->
-      let rec parse_record_types = function
-      | (name, escapes, entry_type_symbol, pos)::rest ->
-        begin match S.look tenv entry_type_symbol with
-        | Some entry_type -> (name, entry_type)::(parse_record_types rest)
-        | None ->
-          error_at_pos ("Undefined type for record entry" ^ (S.name name)) pos;
-          raise Undefined_type
-        end
-      | [] -> []
+and transDec env =
+  let trdec d = match d.dec_desc with
+  | TyDec (dec_name, dec_type_exp) ->
+    (match dec_type_exp.ty_desc with
+    | RecordTy formal_param_list ->
+      let record_types = List.fold_left
+        (fun rec_type_list formal_param ->
+          match S.look env.tenv formal_param.param_typename with
+          | Some param_type ->
+            (formal_param.param_name, param_type)::rec_type_list
+          | None ->
+            error_at_pos
+              "undefined type for record parameter"
+              formal_param.param_pos;
+              rec_type_list)
+        []
+        formal_param_list
       in
-        {venv = venv; tenv = S.enter tenv dec_name (RECORD (parse_record_types record_entries, ref ()))}
+        {env with
+          tenv = S.enter env.tenv dec_name (RECORD (record_types, (ref ())))}
     | _ ->
       error_at_pos "Unimplemented type declaration encountered" Lexing.dummy_pos;
       raise Unimplemented
-    end
-  | VarDec (var_symbol, escapes, optional_type_annotation_symbol, exp, pos) ->
-    let (exp_translation, exp_type) = transExp venv tenv exp in
-      begin match optional_type_annotation_symbol with
+    )
+  | VarDec (var_symbol, escapes, optional_type_annotation_symbol, exp) ->
+    let (exp_translation, exp_type) = transExp env exp in
+      (match optional_type_annotation_symbol with
       | Some (type_annotation_symbol, type_annotation_pos) ->
-        let optional_type_annotation = S.look tenv type_annotation_symbol in
+        let optional_type_annotation = S.look env.tenv type_annotation_symbol in
           begin match optional_type_annotation with
           | Some type_annotation ->
             if exp_type <> type_annotation then begin
               error_at_pos ("Variable " ^ (S.name var_symbol) ^
                             " declared as type " ^ string_of_type type_annotation ^
                             " but is assigned with value of type " ^ string_of_type exp_type)
-                            pos;
+                            d.dec_pos;
               raise Type_mismatch
             end
           | None ->
@@ -171,13 +173,13 @@ and transDec venv tenv =
             raise Undefined_type
           end
       | None -> ()
-      end;
-      {venv = S.enter venv var_symbol (VarEntry exp_type); tenv = tenv}
+      );
+      {env with venv = S.enter env.venv var_symbol (VarEntry exp_type)}
 
   | _ ->
     error_at_pos "unimplemented declaration encountered" Lexing.dummy_pos;
-    {venv = venv; tenv = tenv}
+    env
   in
     function main_dec -> trdec main_dec
 
-let transProg venv tenv exp = ignore (transExp venv tenv exp)
+let transProg env exp = ignore (transExp env exp)

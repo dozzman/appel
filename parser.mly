@@ -188,7 +188,7 @@ control:
                                       { exp_desc = IntExp 0; exp_pos = $startpos });
                    exp_pos = $startpos } }
 | BREAK { { exp_desc = BreakExp; exp_pos = $startpos } }
-| LET decs IN expseq END { { exp_desc = LetExp ($2, $4); exp_pos = $startpos } }
+| LET decs IN exp END { { exp_desc = LetExp ($2, $4); exp_pos = $startpos } }
 
 assign:
 | lvalue ASSIGN exp { { exp_desc = AssignExp ($1, $3);

@@ -24,6 +24,7 @@ end
 let compare (s1,n1) (s2,n2) = (IntOrderedType.compare n1 n2) = 0
 
 module IntMap = Map.Make(IntOrderedType)
+
 type 'a table = 'a IntMap.t
 let empty = IntMap.empty;;
 
