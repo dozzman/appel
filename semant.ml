@@ -2,6 +2,7 @@ open Absyn
 open Types
 open ErrorMsg
 open Env
+open Printf
 
 module S = Symbol
 
@@ -91,6 +92,56 @@ let rec transExp env main_exp =
         decls
       in
         transExp new_env exp
+    | RecordExp (params, type_symbol) -> (
+      match S.look env.tenv type_symbol with
+      | Some annotated_type -> (
+        match annotated_type with
+        | RECORD (annotated_params, unique) ->
+          (* TODO record parameters should be order agnostic *)
+          if List.length annotated_params <> List.length params then
+            let error_msg =
+              sprintf "Declared record type does not match record signature"
+            in
+              error_at_pos error_msg e.exp_pos
+          else
+            List.iter2
+              (fun (p_lbl, p_exp) (a_lbl, a_ty) ->
+                let (_, p_ty) = trexp p_exp in
+                  if not (S.compare p_lbl.reclabel_name a_lbl) then
+                    let error_msg =
+                      sprintf "Record labels do not match. \
+                               found '%s', expecting '%s'"
+                        (S.name p_lbl.reclabel_name) (S.name a_lbl)
+                    in
+                      error_at_pos error_msg p_lbl.reclabel_pos
+                  else if p_ty <> a_ty then
+                    let error_msg =
+                      sprintf "Unexpected type for parameter '%s'. \
+                               Found '%s', expected '%s'"
+                        (S.name p_lbl.reclabel_name)
+                        (Types.string_of_type p_ty)
+                        (Types.string_of_type a_ty)
+                    in
+                      error_at_pos error_msg p_lbl.reclabel_pos
+              ) params annotated_params; 
+          ((), annotated_type)
+        | _ ->
+          let error_msg =
+            sprintf
+              "This record is defined as having type '%s' \
+               which is not a record!"
+            (S.name type_symbol)
+          in
+            error_at_pos error_msg e.exp_pos;
+            ((), annotated_type)
+        )
+      | None ->
+        let error_msg =
+          sprintf "Undeclared record type '%s'" (S.name type_symbol)
+        in
+          error_at_pos error_msg e.exp_pos;
+          ((), UNIT)
+      )
     | _ ->
       error_at_pos "unimplemented expression encountered" Lexing.dummy_pos;
       ( (), INT )
