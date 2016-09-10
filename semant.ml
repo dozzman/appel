@@ -94,46 +94,47 @@ let rec transExp env main_exp =
         transExp new_env exp
     | RecordExp (params, type_symbol) -> (
       match S.look env.tenv type_symbol with
-      | Some annotated_type -> (
-        match annotated_type with
-        | RECORD (annotated_params, unique) ->
-          (* TODO record parameters should be order agnostic *)
-          if List.length annotated_params <> List.length params then
-            let error_msg =
-              sprintf "Declared record type does not match record signature"
-            in
-              error_at_pos error_msg e.exp_pos
-          else
-            List.iter2
-              (fun (p_lbl, p_exp) (a_lbl, a_ty) ->
-                let (_, p_ty) = trexp p_exp in
-                  if not (S.compare p_lbl.reclabel_name a_lbl) then
-                    let error_msg =
-                      sprintf "Record labels do not match. \
-                               found '%s', expecting '%s'"
-                        (S.name p_lbl.reclabel_name) (S.name a_lbl)
-                    in
-                      error_at_pos error_msg p_lbl.reclabel_pos
-                  else if p_ty <> a_ty then
-                    let error_msg =
-                      sprintf "Unexpected type for parameter '%s'. \
-                               Found '%s', expected '%s'"
-                        (S.name p_lbl.reclabel_name)
-                        (Types.string_of_type p_ty)
-                        (Types.string_of_type a_ty)
-                    in
-                      error_at_pos error_msg p_lbl.reclabel_pos
-              ) params annotated_params; 
-          ((), annotated_type)
-        | _ ->
-          let error_msg =
-            sprintf
-              "This record is defined as having type '%s' \
-               which is not a record!"
-            (S.name type_symbol)
-          in
-            error_at_pos error_msg e.exp_pos;
+      | Some name_type -> 
+        let annotated_type = actual_ty name_type in (
+          match annotated_type with
+          | RECORD (annotated_params, unique) ->
+            (* TODO record parameters should be order agnostic *)
+            if List.length annotated_params <> List.length params then
+              let error_msg =
+                sprintf "Declared record type does not match record signature"
+              in
+                error_at_pos error_msg e.exp_pos
+            else
+              List.iter2
+                (fun (p_lbl, p_exp) (a_lbl, a_ty) ->
+                  let (_, p_ty) = trexp p_exp in
+                    if not (S.compare p_lbl.reclabel_name a_lbl) then
+                      let error_msg =
+                        sprintf "Record labels do not match. \
+                                 found '%s', expecting '%s'"
+                          (S.name p_lbl.reclabel_name) (S.name a_lbl)
+                      in
+                        error_at_pos error_msg p_lbl.reclabel_pos
+                    else if p_ty <> a_ty then
+                      let error_msg =
+                        sprintf "Unexpected type for parameter '%s'. \
+                                 Found '%s', expected '%s'"
+                          (S.name p_lbl.reclabel_name)
+                          (Types.string_of_type p_ty)
+                          (Types.string_of_type a_ty)
+                      in
+                        error_at_pos error_msg p_lbl.reclabel_pos
+                ) params annotated_params; 
             ((), annotated_type)
+          | _ ->
+            let error_msg =
+              sprintf
+                "This record is defined as having type '%s' \
+                 which is not a record!"
+              (S.name type_symbol)
+            in
+              error_at_pos error_msg e.exp_pos;
+              ((), annotated_type)
         )
       | None ->
         let error_msg =
@@ -186,9 +187,12 @@ and transDec env =
   | TyDec (dec_name, dec_type_exp) ->
     (match dec_type_exp.ty_desc with
     | RecordTy formal_param_list ->
+      let rec_type_ref = ref None in
+      let header = NAME (dec_name, rec_type_ref) in
+      let new_env = {env with tenv = S.enter env.tenv dec_name header} in
       let record_types = List.fold_left
         (fun rec_type_list formal_param ->
-          match S.look env.tenv formal_param.param_typename with
+          match S.look new_env.tenv formal_param.param_typename with
           | Some param_type ->
             (formal_param.param_name, param_type)::rec_type_list
           | None ->
@@ -199,8 +203,8 @@ and transDec env =
         []
         formal_param_list
       in
-        {env with
-          tenv = S.enter env.tenv dec_name (RECORD (record_types, (ref ())))}
+        rec_type_ref := Some (RECORD (record_types, ref ()));
+        new_env
     | _ ->
       error_at_pos "Unimplemented type declaration encountered" Lexing.dummy_pos;
       raise Unimplemented
