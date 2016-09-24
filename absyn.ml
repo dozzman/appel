@@ -58,7 +58,7 @@ and exp =
 | LetExp of declaration list * expression (* delcaration list, expression sequence *)
 
 and dec =
-| TyDec of symbol * type_expression (* type name, type *)
+| TyDec of (symbol * type_expression) list (* type name, type *)
 | VarDec of symbol * bool ref * (symbol * pos) option * expression (* var name, escape, optional type name, expression, pos *)
 | FunDec of (symbol * formal_parameter list * (symbol * pos) option * expression) list
             (* (function name, formal parameter list, optional return type, body, pos) list *)

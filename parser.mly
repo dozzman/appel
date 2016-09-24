@@ -74,6 +74,9 @@
 
 %left UMINUS
 
+%nonassoc GROUP_TYPES
+%nonassoc TYPE
+
 %start prog
 
 %type <Absyn.expression> prog
@@ -88,14 +91,18 @@ decs:
 | dec decs { $1 :: $2 }
 
 dec:
-| tydec { $1 }
+| tydec { { dec_desc = TyDec $1;
+            dec_pos = $startpos } }
 | vardec { $1 }
 | fundec { { dec_desc = FunDec $1;
              dec_pos = $startpos } }
 
 tydec:
-| TYPE ID EQ ty { { dec_desc = TyDec (S.symbol $2, $4);
-                    dec_pos = $startpos } }
+| TYPE ID EQ ty tydecMore { (S.symbol $2, $4) :: $5 }
+
+tydecMore:
+| TYPE ID EQ ty tydecMore { (S.symbol $2, $4) :: $5 }
+| %prec GROUP_TYPES {[]}
 
 ty:
 | ID { { ty_desc = NameTy (S.symbol $1);
@@ -141,8 +148,8 @@ fundec:
 | FUNCTION ID LPAREN tyfields RPAREN COLON ID EQ exp fundecMore { (S.symbol $2, $4, Some (S.symbol $7, $startpos($7)), $9) :: $10 }
 
 fundecMore:
-| AND FUNCTION ID LPAREN tyfields RPAREN EQ exp fundec { (S.symbol $3, $5, None, $8) :: $9 }
-| AND FUNCTION ID LPAREN tyfields RPAREN COLON ID EQ exp fundec { (S.symbol $3, $5, Some (S.symbol $8, $startpos($8)), $10) :: $11 }
+| AND FUNCTION ID LPAREN tyfields RPAREN EQ exp fundecMore { (S.symbol $3, $5, None, $8) :: $9 }
+| AND FUNCTION ID LPAREN tyfields RPAREN COLON ID EQ exp fundecMore { (S.symbol $3, $5, Some (S.symbol $8, $startpos($8)), $10) :: $11 }
 | { [] }
 
 exp:
