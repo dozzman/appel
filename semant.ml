@@ -111,7 +111,8 @@ let trans_tydec env (symbol, ty_exp) =
     | NameTy name ->
       (match forward_declare_type env' name with
       | `Defined ty ->
-        type_ref := Some (actual_ty ty); (* Dont need 'actual_ty call here *)
+        (* Dont need to call 'actual_ty' here *)
+        type_ref := Some (actual_ty ty);
         env'
       | `Declared (env'', ty) ->
         (match type_closure_contains env'' name symbol with
