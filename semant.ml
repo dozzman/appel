@@ -12,55 +12,138 @@ exception Type_mismatch
 
 type expty = Translate.exp * ty
 
-type forward_dec_success =
-| Exists of ty
-| Created of env * ty
-
 let rec actual_ty t =
   match t with
   | NAME (symbol, tyref) ->
     begin match !tyref with
-    | Some ty -> actual_ty ty
+    | Some ty ->
+      actual_ty ty
     | None -> t
     end
   | _ -> t
 
-let check_type_errors env symbol = 0
+let check_type_errors env (symbol, ty_exp) =
+  let rec assert_type_defined ty =
+    match actual_ty ty with
+    | NAME (sym, _) ->
+        let error_msg =
+          sprintf "Type '%s' has not been fully defined" (S.name sym)
+        in
+          error_at_pos error_msg ty_exp.ty_pos;
+          false
+    | ARRAY (elem_ty, _) ->
+      assert_type_defined elem_ty
+    | RECORD (param_list, _) ->
+      List.fold_left
+        (fun acc (sym, ty') ->
+          match ty' with
+          (* recursive record has already been defined *)
+          | NAME (s, _) when s = symbol ->
+            true
+          | _ ->
+            if not (assert_type_defined ty') then false
+            else acc)
+        true
+        param_list
+    | _ -> true
+  in
+    match S.look env.tenv symbol with
+    | Some ty ->
+      if assert_type_defined ty then 0
+      else 1
+    | None ->
+      let error_msg =
+        sprintf "Undeclared type '%s'" (S.name symbol)
+      in
+        error_at_pos error_msg ty_exp.ty_pos;
+        1
 
-let forward_declare_type env symbol = Created (env, (NAME (symbol, ref None)))
+let rec type_closure_contains env symbol check_symbol =
+  let check_descend inner_ty =
+    match inner_ty with
+    | NAME (next_symbol, ty_ref) ->
+      type_closure_contains env next_symbol check_symbol
+    | _ -> true (* inner types must be names or primitives *)
+  in
+    if symbol = check_symbol then true
+    else match S.look env.tenv symbol with
+    | None -> false
+    | Some ty ->
+      (match ty with
+      | NAME (_, ty_ref) ->
+        (match !ty_ref with
+        | Some ty' ->
+          check_descend ty'
+        | None -> false)
+      | ARRAY (elem_ty, _) ->
+        check_descend elem_ty
+      | RECORD (param_list, _) ->
+        List.fold_left
+          (fun acc (sym, ty') ->
+            if not (check_descend ty') then false
+            else acc)
+          true
+          param_list
+      | _ -> true)
+
+let forward_declare_type env symbol =
+  match S.look env.tenv symbol with
+  | None ->
+    let forward_type = NAME (symbol, ref None) in
+    let env' =
+      {env with tenv = S.enter env.tenv symbol forward_type}  in
+      `Declared (env', forward_type)
+  | Some ty ->
+    (match actual_ty ty with
+    | (NAME _) as actualty ->
+      `Declared (env, actualty)
+    | existing_ty ->
+      `Defined existing_ty)
 
 let trans_tydec env (symbol, ty_exp) =
   match forward_declare_type env symbol with
-  | Exists ty ->
-    let error_msg = sprintf "type %s already declared" (S.name symbol) in
+  | `Defined ty ->
+    let error_msg = sprintf "type %s already fully defined" (S.name symbol) in
       error_at_pos error_msg ty_exp.ty_pos;
       env
-  | Created (env', (NAME (symbol, type_ref))) ->
+  | `Declared (env', (NAME (symbol, type_ref))) ->
     (match ty_exp.ty_desc with
     | NameTy name ->
       (match forward_declare_type env' name with
-      | Exists ty ->
-        type_ref := Some (actual_ty ty);
+      | `Defined ty ->
+        type_ref := Some (actual_ty ty); (* Dont need 'actual_ty call here *)
         env'
-      | Created (env'', ty) ->
-        type_ref := Some ty;
-        env'')
+      | `Declared (env'', ty) ->
+        (match type_closure_contains env'' name symbol with
+        | true ->
+          let error_msg = "type declaration loop detected" in
+            error_at_pos error_msg ty_exp.ty_pos;
+            env
+        | false ->
+          type_ref := Some ty;
+          env''))
     | ArrayTy name ->
       (match forward_declare_type env' name with
-      | Exists ty ->
+      | `Defined ty ->
         type_ref := Some (ARRAY ((actual_ty ty), ref ()));
         env'
-      | Created (env'', ty) ->
-        type_ref := Some (ARRAY (actual_ty ty, ref()));
-        env'')
+      | `Declared (env'', ty) ->
+        (match type_closure_contains env'' name symbol with
+        | true ->
+          let error_msg = "type declaration loop detected" in
+            error_at_pos error_msg ty_exp.ty_pos;
+            env
+        | false ->
+          type_ref := Some (ARRAY (actual_ty ty, ref ()));
+          env''))
     | RecordTy params ->
       let env'', record_params =
         List.fold_left
           (fun (env, record_params) param ->
             (match forward_declare_type env param.param_typename with
-            | Exists ty ->
+            | `Defined ty ->
               (env, (param.param_name, ty)::record_params)
-            | Created (env', ty) ->
+            | `Declared (env', ty) ->
               (env', (param.param_name, ty)::record_params)))
         (env', [])
         params
@@ -254,11 +337,10 @@ and transDec env =
   | TyDec tydec_list ->
     let env' = List.fold_left trans_tydec env tydec_list in
       (* check for undefined types *)
-      let ty_symbols = List.map (fun (s,_) -> s) tydec_list in
       let failures = List.fold_left
-        (fun acc s -> acc + (check_type_errors env' s))
+        (fun acc tydec -> acc + (check_type_errors env' tydec))
         0
-        ty_symbols
+        tydec_list
       in
         (match failures with
         | 0 -> env'

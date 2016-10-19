@@ -18,7 +18,7 @@ let name (s,n) = s
 
 module IntOrderedType = struct
   type t = int
-  let compare x1 x2 = x1 - x2
+  let compare = Pervasives.compare
 end
 
 let compare (s1,n1) (s2,n2) = (IntOrderedType.compare n1 n2) = 0
