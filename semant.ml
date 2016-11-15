@@ -367,6 +367,10 @@ and transDec env =
       | None -> ()
       );
       {env with venv = S.enter env.venv var_symbol (VarEntry exp_type)}
+  (*| FunDec ((name, formals, ret, body) as fundec) ->
+    
+    *)
+    
 
   | _ ->
     error_at_pos "unimplemented declaration encountered" Lexing.dummy_pos;

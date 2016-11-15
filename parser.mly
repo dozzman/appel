@@ -144,12 +144,40 @@ vardec:
                               dec_pos = $startpos } }
 
 fundec:
-| FUNCTION ID LPAREN tyfields RPAREN EQ exp fundecMore { (S.symbol $2, $4, None, $7) :: $8 }
-| FUNCTION ID LPAREN tyfields RPAREN COLON ID EQ exp fundecMore { (S.symbol $2, $4, Some (S.symbol $7, $startpos($7)), $9) :: $10 }
+| FUNCTION ID LPAREN tyfields RPAREN EQ exp fundecMore { 
+  (S.symbol $2,
+  { formals = $4;
+    body = $7;
+    ret_ty = None;
+    fun_pos = $startpos($1);
+  }) :: $8
+}
+| FUNCTION ID LPAREN tyfields RPAREN COLON ID EQ exp fundecMore {
+  (S.symbol $2,
+  { formals = $4;
+    ret_ty = Some (S.symbol $7, $startpos($7));
+    body = $9;
+    fun_pos = $startpos($1)
+  }) :: $10
+}
 
 fundecMore:
-| AND FUNCTION ID LPAREN tyfields RPAREN EQ exp fundecMore { (S.symbol $3, $5, None, $8) :: $9 }
-| AND FUNCTION ID LPAREN tyfields RPAREN COLON ID EQ exp fundecMore { (S.symbol $3, $5, Some (S.symbol $8, $startpos($8)), $10) :: $11 }
+| AND FUNCTION ID LPAREN tyfields RPAREN EQ exp fundecMore {
+  (S.symbol $3,
+  { formals = $5;
+    body = $8;
+    ret_ty = None;
+    fun_pos = $startpos($1);
+  }) :: $9
+}
+| AND FUNCTION ID LPAREN tyfields RPAREN COLON ID EQ exp fundecMore {
+  (S.symbol $3,
+  { formals = $5;
+    ret_ty = Some (S.symbol $8, $startpos($8));
+    body = $10;
+    fun_pos = $startpos($1);
+  }) :: $11
+}
 | { [] }
 
 exp:
